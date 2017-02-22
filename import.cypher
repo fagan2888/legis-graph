@@ -45,7 +45,7 @@ AS line
 MERGE (bill:Bill { billID: line.billID })
     ON CREATE SET bill = line;
 
-// Load 
+// Load
 
 LOAD CSV WITH HEADERS
 FROM 'file:///subjects.csv' AS line
@@ -125,10 +125,8 @@ SET r.rank = toInt(line.rank);
 // Create District nodes
 LOAD CSV WITH HEADERS
 FROM 'https://github.com/legis-graph/legis-graph/blob/master/outputs/cb_2014_districts.csv?raw=true' AS line
-CREATE (d:District)
-SET d.state = line.state,
-    d.district = line.district,
-    d.wkt = line.polygon
+MERGE (d:District {state: line.state, district: line.district})
+  ON CREATE SET d.wkt = line.polygon
 WITH d,line
 MATCH (l:Legislator) WHERE l.state = line.state AND l.district = line.district
 MERGE (l)-[:REPRESENTS]->(d);
