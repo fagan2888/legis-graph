@@ -6,7 +6,7 @@ AS line
 MATCH (bill:Bill { billID: line.billID }),
       (legislator:Legislator { thomasID: line.thomasID })
 MERGE (bill)-[r:SPONSORED_BY]->(legislator)
-SET r.cosponsor = CASE WHEN line.cosponsor = "1" THEN true ELSE false END;
+  ON CREATE SET r.cosponsor = CASE WHEN line.cosponsor = "1" THEN true ELSE false END;
 
 // Load current bill sponsorships and co-sponsorships
 USING PERIODIC COMMIT
@@ -16,4 +16,4 @@ AS line
 MATCH (bill:Bill { billID: line.billID }),
       (legislator:Legislator { bioguideID: line.bioguideID })
 MERGE (bill)-[r:SPONSORED_BY]->(legislator)
-SET r.cosponsor = CASE WHEN line.cosponsor = "1" THEN true ELSE false END;
+    ON CREATE SET r.cosponsor = CASE WHEN line.cosponsor = "1" THEN true ELSE false END;
