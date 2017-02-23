@@ -57,7 +57,7 @@ AS line
 MERGE (bill:Bill { billID: line.billID })
     ON CREATE SET bill = line;
 
-// Load
+// Load Subjects
 
 LOAD CSV WITH HEADERS
 FROM 'file:///subjects.csv' AS line
@@ -109,14 +109,23 @@ MATCH (bill:Bill { billID: line.billID }),
 MERGE (bill)-[r:SPONSORED_BY]->(legislator)
     ON CREATE SET r.cosponsor = CASE WHEN line.cosponsor = "1" THEN true ELSE false END;
 
-// Load Votes
-
+// Load House Votes
 USING PERIODIC COMMIT
 LOAD CSV WITH HEADERS
-FROM 'file:///votes.csv'
+FROM 'file:///votes-house.csv'
 AS line
 MATCH (bill:Bill { billID: line.billID }),
       (legislator:Legislator { bioguideID: line.bioguideID })
+MERGE (bill)<-[r:VOTED_ON]-(legislator)
+    ON CREATE SET r.vote = line.vote;
+
+// Load Senate Votes
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'file:///votes-senate.csv'
+AS line
+MATCH (bill:Bill { billID: line.billID }),
+      (legislator:Legislator { lisID: line.lisID })
 MERGE (bill)<-[r:VOTED_ON]-(legislator)
     ON CREATE SET r.vote = line.vote;
 
