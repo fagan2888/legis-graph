@@ -12,7 +12,12 @@ BILLS_COLUMNS = [
     'officialTitle',
     'popularTitle'
 ]
-SPONSORS_COLUMNS = [
+SPONSORS_COLUMNS_USING_THOMAS = [
+    'billID',
+    'thomasID',
+    'cosponsor'
+]
+SPONSORS_COLUMNS_USING_BIOGUIDE = [
     'billID',
     'bioguideID',
     'cosponsor'
@@ -25,9 +30,13 @@ bills_file = open('outputs/bills.csv', 'w')
 bill_writer = csv.DictWriter(bills_file, BILLS_COLUMNS, extrasaction='ignore')
 bill_writer.writeheader()
 
-sponsors_file = open('outputs/sponsors.csv', 'w')
-sponsor_writer = csv.DictWriter(sponsors_file, SPONSORS_COLUMNS, extrasaction='ignore')
-sponsor_writer.writeheader()
+historical_sponsors_file = open('outputs/sponsors-historical.csv', 'w')
+historical_sponsor_writer = csv.DictWriter(historical_sponsors_file, SPONSORS_COLUMNS_USING_THOMAS, extrasaction='ignore')
+historical_sponsor_writer.writeheader()
+
+current_sponsors_file = open('outputs/sponsors-current.csv', 'w')
+current_sponsor_writer = csv.DictWriter(current_sponsors_file, SPONSORS_COLUMNS_USING_BIOGUIDE, extrasaction='ignore')
+current_sponsor_writer.writeheader()
 
 bill_subjects_file = open('outputs/bill_subjects.csv', 'w')
 bill_subject_writer = csv.DictWriter(bill_subjects_file, ['billID', 'title'], extrasaction='ignore')
@@ -45,7 +54,17 @@ for bill_type in BILL_TYPES:
     bill_records = []
     congresses_dir = os.path.join(DATA_ROOT, 'congress')
     for congress in os.listdir(congresses_dir):
-        congress_records = []
+        # We'll identify legislators using thomas_id for Congresses < 114th,
+        # bioguide_id for Congresses >= 114th
+        # https://github.com/legis-graph/legis-graph/issues/15
+        congress_as_int = int(congress)
+        if congress_as_int < 114:
+            source_legislator_id = 'thomas_id'
+            target_legislator_id = 'thomasID'
+        else:
+            source_legislator_id = 'bioguide_id'
+            target_legislator_id = 'bioguideID'
+
         bills_dir = os.path.join(congresses_dir, congress, 'bills', bill_type)
         for bill_num in os.listdir(bills_dir):
             data_path = os.path.join(bills_dir, bill_num)
@@ -63,21 +82,30 @@ for bill_type in BILL_TYPES:
 
             bill_writer.writerow(bill_record)
 
-            # Write out the bill->sponsors relationships for this bill
+            # Write out the bill->sponsors relationships for this bill.
             for cosponsor in bill_data['cosponsors']:
-                sponsor_writer.writerow({
+                cosponsor_row = {
                     'billID': bill_data['bill_id'],
-                    'bioguideID': cosponsor['bioguide_id'],
+                    target_legislator_id: cosponsor[source_legislator_id],
                     'cosponsor': 1
-                })
-            sponsor = bill_data['sponsor']
-            sponsor_writer.writerow({
-                'billID': bill_data['bill_id'],
-                'bioguideID': sponsor['bioguide_id'],
-                'cosponsor': 0
-            })
+                }
+                if congress_as_int < 114:
+                    historical_sponsor_writer.writerow(cosponsor_row)
+                else:
+                    current_sponsor_writer.writerow(cosponsor_row)
 
-            #Write out the bill-[:REFERRED_TO]->committee relationships for this bill
+            sponsor = bill_data['sponsor']
+            sponsor_row = {
+                'billID': bill_data['bill_id'],
+                target_legislator_id: sponsor[source_legislator_id],
+                'cosponsor': 0
+            }
+            if congress_as_int < 114:
+                historical_sponsor_writer.writerow(sponsor_row)
+            else:
+                current_sponsor_writer.writerow(sponsor_row)
+
+            # Write out the bill-[:REFERRED_TO]->committee relationships for this bill
             for committee in bill_data['committees']:
                 if committee['activity'] and len(committee['activity']) > 0 and committee['activity'][0] == 'referral':
                     record = {
@@ -105,6 +133,8 @@ for bill_type in BILL_TYPES:
             bill_file.close()
 
 bills_file.close()
+historical_sponsors_file.close()
+current_sponsors_file.close()
 bill_congresses_file.close()
 bill_subjects_file.close()
 bill_committees_file.close()
