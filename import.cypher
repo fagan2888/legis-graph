@@ -1,9 +1,6 @@
 // Legis-graph LOAD CSV cypher script
 // https://github.com/legis-graph/legis-graph
 
-// Load Legislators
-
-
 CREATE CONSTRAINT ON (l:Legislator) ASSERT l.bioguideID IS UNIQUE;
 CREATE CONSTRAINT ON (s:State) ASSERT s.code IS UNIQUE;
 CREATE CONSTRAINT ON (p:Party) ASSERT p.name IS UNIQUE;
@@ -12,12 +9,27 @@ CREATE CONSTRAINT ON (b:Bill) ASSERT b.billID IS UNIQUE;
 CREATE CONSTRAINT ON (s:Subject) ASSERT s.title IS UNIQUE;
 CREATE CONSTRAINT ON (c:Committee) ASSERT c.thomasID IS UNIQUE;
 
+// Load historical Legislators
+LOAD CSV WITH HEADERS
+FROM 'file:///legislators-historical.csv' AS line
+MERGE (legislator:Legislator { bioguideID: line.bioguideID })
+    ON CREATE SET legislator = line
+    ON MATCH SET legislator = line
+MERGE (s:State {code: line.state})
+MERGE (legislator)-[:REPRESENTS]->(s)
+FOREACH(party IN (CASE WHEN line.currentParty <> "" THEN [line.currentParty] ELSE [] END) |
+    MERGE (p:Party {name: party})
+    MERGE (legislator)-[:IS_MEMBER_OF]->(p)
+)
+MERGE (b:Body {type: line.type})
+MERGE (legislator)-[:ELECTED_TO]->(b);
 
-
+// Load current Legislators
 LOAD CSV WITH HEADERS
 FROM 'file:///legislators-current.csv' AS line
-MERGE (legislator:Legislator {bioguideID: line.bioguideID})
+MERGE (legislator:Legislator { bioguideID: line.bioguideID })
     ON CREATE SET legislator = line
+    ON MATCH SET legislator = line
 MERGE (s:State {code: line.state})
 MERGE (legislator)-[:REPRESENTS]->(s)
 MERGE (p:Party {name: line.currentParty})
@@ -45,7 +57,7 @@ AS line
 MERGE (bill:Bill { billID: line.billID })
     ON CREATE SET bill = line;
 
-// Load 
+// Load
 
 LOAD CSV WITH HEADERS
 FROM 'file:///subjects.csv' AS line
